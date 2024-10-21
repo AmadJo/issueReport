@@ -1,0 +1,39 @@
+@startuml 고장 제보 백엔드 시퀀스 다이어그램 (고장 제보 컬렉션이 따로 존재하는 경우)
+    actor Client
+    collections StationsController
+    collections IssueReportController
+    collections IssueReportService
+    database IssueReportsDB
+    database S3
+    '
+    Client --> StationsController: GET /stations/:stationId (가존 station 로직 이용)
+    activate StationsController
+    Client <[#Green]- StationsController: 200 ok station data (충전소 정보 및 충전기 정보)
+    deactivate StationsController
+
+    Client --> IssueReportController: POST /issue-reports/image (이미지 업로드) (images: Formdata[])
+    activate IssueReportController
+    IssueReportController --> IssueReportService: uploadImages(images: Formdata[])
+    activate IssueReportService
+    IssueReportService --> S3: 이미지 저장
+    activate S3
+    IssueReportService <- S3: image Urls
+    deactivate S3
+    IssueReportController <- IssueReportService: imageUrls
+    deactivate IssueReportService
+    Client <[#Green]- IssueReportController: 200 ok imageUrls
+    deactivate IssueReportController
+
+    Client --> IssueReportController: POST /issue-reports/:stationId (고장 제보) {chargerId, reportDetail, images}
+    activate IssueReportController
+    IssueReportController --> IssueReportService: createIssueReport(userId, stationId, chargerId, reportDetail, images)
+    activate IssueReportService
+    IssueReportService --> IssueReportsDB: IssueReportModel.create({_user: userId, _station: stationId, _charger: chargerId, reportDetail, reportImages: images})
+    activate IssueReportsDB
+    IssueReportService <- IssueReportsDB: issueReport
+    deactivate IssueReportsDB
+    IssueReportController <- IssueReportService: issueReport
+    deactivate IssueReportService
+    Client <[#Green]- IssueReportController: 200 ok issueReport
+    deactivate IssueReportController
+@enduml
